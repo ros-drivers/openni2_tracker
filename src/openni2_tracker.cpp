@@ -5,14 +5,14 @@
 #include <tf/transform_broadcaster.h>
 #include <kdl/frames.hpp>
 
-#include <XnOpenNI.h>
-#include <XnCodecIDs.h>
-#include <XnCppWrapper.h>
+#include <OpenNI.h>
+//#include <XnCodecIDs.h>
+//#include <XnCppWrapper.h>
 
 using std::string;
 
-xn::Context        g_Context;
-xn::DepthGenerator g_DepthGenerator;
+//xn::Context        g_Context;
+openni::DepthGenerator g_DepthGenerator;
 xn::UserGenerator  g_UserGenerator;
 
 XnBool g_bNeedPose   = FALSE;
