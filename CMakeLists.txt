@@ -6,13 +6,20 @@ find_package(catkin REQUIRED COMPONENTS geometry_msgs
 					roslib
 					tf)
 # Find OpenNI2
-find_package(PkgConfig)
-pkg_check_modules(OpenNI2 REQUIRED libopenni2)
-
-message(status $ENV{NITE2_INCLUDE})
-message(status $ENV{NITE2_REDIST64})
+#find_package(PkgConfig)
+#pkg_check_modules(OpenNI2 REQUIRED libopenni2)
+find_path(OpenNI2_INCLUDEDIR
+	  NAMES OpenNI.h
+	  HINTS /usr/include/openni2)
+find_library(OpenNI2_LIBRARIES
+	     NAMES OpenNI2 DummyDevice OniFile PS1090
+	     HINTS /usr/lib/ /usr/lib/OpenNI2/Drivers
+	     PATH_SUFFIXES lib) 
+message(STATUS ${OpenNI2_LIBRARIES})
 
 # Find Nite2
+message(status $ENV{NITE2_INCLUDE})
+message(status $ENV{NITE2_REDIST64})
 find_path(Nite2_INCLUDEDIR
 	  NAMES NiTE.h
 	  HINTS $ENV{NITE2_INCLUDE})
