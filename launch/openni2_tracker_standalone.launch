@@ -1,0 +1,11 @@
+<launch>
+
+  <node name="openni2_tracker_nodelet"
+        pkg="nodelet" type="nodelet"
+        args="standalone openni2_tracker/OpenNI2TrackerNodelet"
+        output="screen">
+    <param name="is_standalone" value="true" />
+    <param name="camera_frame_id" value="camera_link" />
+  </node>
+
+</launch>

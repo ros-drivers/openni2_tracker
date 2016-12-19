@@ -80,7 +80,13 @@ void OpenNI2TrackerNodelet::onInit() {
 									ros::Duration(publish_period_),
 									boost::bind(&OpenNI2TrackerNodelet::timeCallback, this, _1));
 
-	depth_img_sub_ = it_->subscribe("image", 1, &OpenNI2TrackerNodelet::imageCallback, this);
+	bool is_standalone;
+	if (pnh_->getParam("is_standalone", is_standalone) && is_standalone) {
+		device_initialization();
+	} else {
+		depth_img_sub_ = it_->subscribe("image", 1, &OpenNI2TrackerNodelet::imageCallback, this);
+	}
+
 }
 
 void OpenNI2TrackerNodelet::device_initialization() {
