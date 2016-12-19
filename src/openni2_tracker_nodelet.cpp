@@ -174,6 +174,14 @@ void OpenNI2TrackerNodelet::publishTransform(nite::UserData const& user, nite::J
 	transform.setOrigin(tf::Vector3(x, y, z));
 	transform.setRotation(tf::Quaternion(qx, -qy, -qz, qw));
 
+	tf::Transform change_frame;
+	change_frame.setOrigin(tf::Vector3(0, 0, 0));
+	tf::Quaternion frame_rotation;
+	frame_rotation.setEulerZYX(1.5708, 3.1416, 3.1416);
+	change_frame.setRotation(frame_rotation);
+
+	transform = change_frame * transform;
+
 	br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), frame_id, child_frame_no));
 }
 
