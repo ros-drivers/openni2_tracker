@@ -30,7 +30,7 @@
 /*
  * Inspired by the openni_tracker by Tim Field and PrimeSense's NiTE 2.0 - Simple Skeleton Sample
  */
-
+#include <pluginlib/class_list_macros.h>
 #include <ros/ros.h>
 #include <ros/package.h>
 #include <tf/transform_broadcaster.h>
@@ -41,20 +41,109 @@
 //#include <XnCppWrapper.h>
 #include <NiTE.h>
 
+#include <openni2_tracker/openni2_tracker.h>
+
+PLUGINLIB_EXPORT_CLASS(openni2_tracker::OpenNI2TrackerNodelet, nodelet::Nodelet)
+
+namespace openni2_tracker {
+
+OpenNI2TrackerNodelet::OpenNI2TrackerNodelet() : max_users_(10) {}
+
+OpenNI2TrackerNodelet::~OpenNI2TrackerNodelet() { nite::NiTE::shutdown(); }
+
 using std::string;
-
-//xn::Context        g_Context;
-//xn::DepthGenerator g_DepthGenerator;
-//xn::UserGenerator  g_UserGenerator;
-
-#define MAX_USERS 10
-bool g_visibleUsers[MAX_USERS] = {false};
-nite::SkeletonState g_skeletonStates[MAX_USERS] = {nite::SKELETON_NONE};
 
 #define USER_MESSAGE(msg) \
 	{printf("[%08llu] User #%d:\t%s\n",ts, user.getId(),msg);}
 
-void publishTransform(nite::UserData const& user, nite::JointType const& joint, string const& frame_id, string const& child_frame_id) {
+void OpenNI2TrackerNodelet::onInit() {
+
+	for (int i = 0; i < max_users_; ++i) {
+		g_visibleUsers.push_back(false);
+		g_skeletonStates.push_back(nite::SKELETON_NONE);
+	}
+
+	nh_.reset(new ros::NodeHandle(getMTNodeHandle()));
+	pnh_.reset(new ros::NodeHandle(getMTPrivateNodeHandle()));
+	it_ = boost::shared_ptr<image_transport::ImageTransport>(new image_transport::ImageTransport(*nh_));
+
+	frame_id_ = "openni_depth_frame";
+	pnh_->getParam("camera_frame_id", frame_id_);
+	if (!pnh_->getParam("device_id", device_id_)) {
+		device_id_ = "#1";
+	}
+	NODELET_INFO("device_id: %s", device_id_.c_str());
+
+	nh_->param<double>("publish_period", publish_period_, 33);
+	publish_period_ = publish_period_ / 1000.0;
+	publish_timer_ = nh_->createTimer(
+									ros::Duration(publish_period_),
+									boost::bind(&OpenNI2TrackerNodelet::timeCallback, this, _1));
+
+	depth_img_sub_ = it_->subscribe("image", 1, &OpenNI2TrackerNodelet::imageCallback, this);
+}
+
+void OpenNI2TrackerNodelet::device_initialization() {
+	boost::mutex::scoped_lock lock(mutex_);
+	if (openni::OpenNI::initialize() != openni::STATUS_OK) {
+		NODELET_FATAL("OpenNI initial error");
+		return;
+	}
+
+	openni::Array<openni::DeviceInfo> deviceInfoList;
+	openni::OpenNI::enumerateDevices(&deviceInfoList);
+
+	if (device_id_.size() == 0 || device_id_ == "#1") {
+		device_id_ = deviceInfoList[0].getUri();
+	}
+
+	if (devDevice_.open(device_id_.c_str()) != openni::STATUS_OK) {
+		NODELET_FATAL("Couldn't open device: %s", device_id_.c_str());
+		return;
+	}
+
+	userTrackerFrame_.reset(new nite::UserTrackerFrameRef);
+	userTracker_.reset(new nite::UserTracker);
+	nite::NiTE::initialize();
+
+	niteRc_ = userTracker_->create(&devDevice_);
+	if (niteRc_ != nite::STATUS_OK) {
+		NODELET_FATAL("Couldn't create user tracker");
+	return;
+	}
+}
+
+void OpenNI2TrackerNodelet::imageCallback(const sensor_msgs::ImageConstPtr& msg)
+{
+	depth_img_sub_.shutdown();
+	device_initialization();
+}
+
+void OpenNI2TrackerNodelet::timeCallback(const ros::TimerEvent) {
+	boost::mutex::scoped_lock lock(mutex_);
+	if (!devDevice_.isValid())
+		return;
+	niteRc_ = userTracker_->readFrame(&(*userTrackerFrame_));
+	if (niteRc_ != nite::STATUS_OK) {
+		NODELET_WARN("Get next frame failed.");
+		return;
+	}
+
+	const nite::Array<nite::UserData> &users = userTrackerFrame_->getUsers();
+	for (int i = 0; i < users.getSize(); ++i) {
+		const nite::UserData &user = users[i];
+		updateUserState(user, userTrackerFrame_->getTimestamp());
+		if (user.isNew()) {
+			userTracker_->startSkeletonTracking(user.getId());
+			NODELET_INFO("Found a new user.");
+		} else if (user.getSkeleton().getState() == nite::SKELETON_TRACKED) {
+			NODELET_INFO("Now tracking user %d", user.getId());
+		}
+	}
+	publishTransforms(frame_id_, users);
+}
+
+void OpenNI2TrackerNodelet::publishTransform(nite::UserData const& user, nite::JointType const& joint, string const& frame_id, string const& child_frame_id) {
 	static tf::TransformBroadcaster br;
 
 	nite::SkeletonJoint joint_position = user.getSkeleton().getJoint(joint);
@@ -83,7 +172,7 @@ void publishTransform(nite::UserData const& user, nite::JointType const& joint, 
 }
 
 
-void publishTransforms(const std::string& frame_id, const nite::Array<nite::UserData>& users) {
+void OpenNI2TrackerNodelet::publishTransforms(const std::string& frame_id, const nite::Array<nite::UserData>& users) {
 	for (int i = 0; i < users.getSize(); ++i) {
 		const nite::UserData& user = users[i];
 
@@ -112,8 +201,7 @@ void publishTransforms(const std::string& frame_id, const nite::Array<nite::User
 	}
 }
 
-
-void updateUserState(const nite::UserData& user, unsigned long long ts)
+void OpenNI2TrackerNodelet::updateUserState(const nite::UserData& user, unsigned long long ts)
 {
 	if (user.isNew())
 		USER_MESSAGE("New")
@@ -151,61 +239,4 @@ void updateUserState(const nite::UserData& user, unsigned long long ts)
 	}
 }
 
-int main(int argc, char **argv) {
-
-    ros::init(argc, argv, "openni_tracker");
-    ros::NodeHandle nh, nh_priv("~");
-
-    nite::UserTracker userTracker;
-    nite::Status niteRc;
-
-    nite::NiTE::initialize();
-
-	ros::Rate r(30);
-    std::string frame_id("openni_depth_frame");
-    nh_priv.getParam("camera_frame_id", frame_id);
-
-	niteRc = userTracker.create();
-	if (niteRc != nite::STATUS_OK)
-	{
-		printf("Couldn't create user tracker\n");
-		return 3;
-	}
-	printf("\nStart moving around to get detected...\n(PSI pose may be required for skeleton calibration, depending on the configuration)\n");
-
-	nite::UserTrackerFrameRef userTrackerFrame;
-
-	while (ros::ok())
-	{
-		niteRc = userTracker.readFrame(&userTrackerFrame);
-		if (niteRc == nite::STATUS_OK)
-		{
-			const nite::Array<nite::UserData>& users = userTrackerFrame.getUsers();
-			for (int i = 0; i < users.getSize(); ++i)
-			{
-				const nite::UserData& user = users[i];
-				updateUserState(user,userTrackerFrame.getTimestamp());
-				if (user.isNew())
-				{
-					userTracker.startSkeletonTracking(user.getId());
-					ROS_INFO_STREAM("Found a new user.");
-				}
-				else if (user.getSkeleton().getState() == nite::SKELETON_TRACKED)
-				{
-					ROS_INFO_STREAM("Now tracking user " << user.getId());
-				}
-			}
-                        publishTransforms(frame_id, users);
-		}
-		else
-		{
-			ROS_WARN_STREAM("Get next frame failed.");
-		}
-
-		r.sleep();
-	}
-
-        nite::NiTE::shutdown();
-
-	return 0;
-}
+} // end of openni2_tracker namespace

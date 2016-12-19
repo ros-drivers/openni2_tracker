@@ -1,8 +1,18 @@
 <launch>
-  <arg name="camera_frame_id" default="camera_frame_id" />
-  <arg name="output" default="log" />
-  <node pkg="openni2_tracker" type="openni2_tracker" name="openni2_tracker"
-        launch-prefix="runnite2" output="$(arg output)" >
-    <param name="camera_frame_id" value="$(arg camera_frame_id)" />
- </node>
+
+  <arg name="camera" default="camera" />
+  <arg name="manager" value="$(arg camera)/$(arg camera)_nodelet_manager" />
+
+  <include file="$(find openni2_launch)/launch/openni2.launch" >
+    <param name="camera" value="$(arg camera)" />
+  </include>
+
+  <node name="openni2_tracker_nodelet"
+        pkg="nodelet" type="nodelet"
+        args="load openni2_tracker/OpenNI2TrackerNodelet $(arg manager)"
+        output="screen">
+    <remap from="/camera/image" to="/camera/depth/image_raw" />
+    <param name="camera_frame_id" value="camera_link" />
+  </node>
+
 </launch>

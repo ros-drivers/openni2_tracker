@@ -1,0 +1,7 @@
+<library path="lib/libopenni2_tracker">
+  <class name="openni2_tracker/OpenNI2TrackerNodelet" type="openni2_tracker::OpenNI2TrackerNodelet" base_class_type="nodelet::Nodelet">
+    <description>
+      OpenNI2Tracker.
+    </description>
+  </class>
+</library>
