@@ -25,7 +25,7 @@ include_directories(${catkin_INCLUDEDIR}
 		    ${OpenNI2_INCLUDE_DIRS}
 		    ${Nite2_INCLUDEDIR})
 link_directories(${OpenNI2_LIBRARY_DIRS})
-add_executable(openni2_tracker src/openni2_tracker.cpp)
+add_executable(openni2_tracker src/openni2_tracker_nodelet.cpp)
 target_link_libraries(openni2_tracker ${catkin_LIBRARIES} ${OpenNI2_LIBRARIES} ${Nite2_LIBRARY})
 
 install(TARGETS openni2_tracker RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
