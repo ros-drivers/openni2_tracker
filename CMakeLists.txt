@@ -21,7 +21,7 @@ find_library(Nite2_LIBRARY
 
 catkin_package()
 
-include_directories(${catkin_INCLUDEDIR}
+include_directories(${catkin_INCLUDE_DIRS}
 		    ${OpenNI2_INCLUDE_DIRS}
 		    ${Nite2_INCLUDEDIR})
 link_directories(${OpenNI2_LIBRARY_DIRS})
