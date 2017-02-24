@@ -1,25 +1,16 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(openni2_tracker)
 find_package(catkin REQUIRED COMPONENTS geometry_msgs
-					orocos_kdl
 					roscpp
 					roslib
 					tf)
 # Find OpenNI2
-#find_package(PkgConfig)
-#pkg_check_modules(OpenNI2 REQUIRED libopenni2)
-find_path(OpenNI2_INCLUDEDIR
-	  NAMES OpenNI.h
-	  HINTS /usr/include/openni2)
-find_library(OpenNI2_LIBRARIES
-	     NAMES OpenNI2 DummyDevice OniFile PS1090
-	     HINTS /usr/lib/ /usr/lib/OpenNI2/Drivers
-	     PATH_SUFFIXES lib) 
-message(STATUS ${OpenNI2_LIBRARIES})
+find_package(PkgConfig)
+pkg_check_modules(OpenNI2 REQUIRED libopenni2)
 
 # Find Nite2
-message(status $ENV{NITE2_INCLUDE})
-message(status $ENV{NITE2_REDIST64})
+message(STATUS "NITE2_INCLUDE: " $ENV{NITE2_INCLUDE})
+message(STATUS "NITE2_REDIST64: " $ENV{NITE2_REDIST64})
 find_path(Nite2_INCLUDEDIR
 	  NAMES NiTE.h
 	  HINTS $ENV{NITE2_INCLUDE})
@@ -30,9 +21,10 @@ find_library(Nite2_LIBRARY
 
 catkin_package()
 
-include_directories(${catkin_INCLUDEDIR}
-		    ${OpenNI2_INCLUDEDIR}
+include_directories(${catkin_INCLUDE_DIRS}
+		    ${OpenNI2_INCLUDE_DIRS}
 		    ${Nite2_INCLUDEDIR})
+link_directories(${OpenNI2_LIBRARY_DIRS})
 add_executable(openni2_tracker src/openni2_tracker.cpp)
 target_link_libraries(openni2_tracker ${catkin_LIBRARIES} ${OpenNI2_LIBRARIES} ${Nite2_LIBRARY})
 
