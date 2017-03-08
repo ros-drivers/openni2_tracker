@@ -84,6 +84,7 @@ void OpenNI2TrackerNodelet::onInit() {
 	if (pnh_->getParam("is_standalone", is_standalone) && is_standalone) {
 		device_initialization();
 	} else {
+		NODELET_INFO("waiting for %s to initialize OpenNI", nh_->resolveName("image").c_str());
 		depth_img_sub_ = it_->subscribe("image", 1, &OpenNI2TrackerNodelet::imageCallback, this);
 	}
 
@@ -117,6 +118,7 @@ void OpenNI2TrackerNodelet::device_initialization() {
 		NODELET_FATAL("Couldn't create user tracker");
 	return;
 	}
+	NODELET_INFO("OpenNI userTracker initialized");
 }
 
 void OpenNI2TrackerNodelet::imageCallback(const sensor_msgs::ImageConstPtr& msg)
