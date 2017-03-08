@@ -1,11 +1,23 @@
 <launch>
 
+  <arg name="manager"   default="manager"
+       doc="manager name"/>
+  <arg name="camera_frame_id" default="camera_link"
+       doc="camera farame_id for output" />
+  <arg name="is_standalone"   default="true"
+       doc="set true is you want to start standalone manager" />
+  <arg name="depth_image"   default="depth/image_raw"
+       doc="image topic to start tracker node, only for is_standalone=false"/>
+
+  <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager"
+        output="screen" if="$(arg is_standalone)" />
   <node name="openni2_tracker_nodelet"
         pkg="nodelet" type="nodelet"
-        args="standalone openni2_tracker/OpenNI2TrackerNodelet"
+        args="load openni2_tracker/OpenNI2TrackerNodelet $(arg manager)"
         output="screen">
-    <param name="is_standalone" value="true" />
-    <param name="camera_frame_id" value="camera_link" />
+    <remap from="image" to="$(arg depth_image)" />
+    <param name="is_standalone" value="$(arg is_standalone)" />
+    <param name="camera_frame_id" value="$(arg camera_frame_id)" />
   </node>
 
 </launch>
