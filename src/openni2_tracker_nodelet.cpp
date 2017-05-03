@@ -49,7 +49,13 @@ namespace openni2_tracker {
 
 OpenNI2TrackerNodelet::OpenNI2TrackerNodelet() : max_users_(10) {}
 
-OpenNI2TrackerNodelet::~OpenNI2TrackerNodelet() { nite::NiTE::shutdown(); }
+OpenNI2TrackerNodelet::~OpenNI2TrackerNodelet() {
+  NODELET_INFO("shutdown: device %s", device_id_.c_str());
+  userTrackerFrame_->release();
+  userTracker_->destroy();
+  devDevice_.close();
+  nite::NiTE::shutdown();
+}
 
 using std::string;
 
