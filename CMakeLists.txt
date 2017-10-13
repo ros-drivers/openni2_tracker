@@ -30,7 +30,7 @@ find_library(Nite2_LIBRARY
 
 catkin_package()
 
-include_directories(${catkin_INCLUDEDIR}
+include_directories(${catkin_INCLUDE_DIRS}
 		    ${OpenNI2_INCLUDEDIR}
 		    ${Nite2_INCLUDEDIR})
 add_executable(openni2_tracker src/openni2_tracker.cpp)
