@@ -5,6 +5,7 @@ find_package(catkin REQUIRED COMPONENTS geometry_msgs
 					roscpp
 					roslib
 					tf)
+add_definitions("-std=c++11")
 # Find OpenNI2
 #find_package(PkgConfig)
 #pkg_check_modules(OpenNI2 REQUIRED libopenni2)
