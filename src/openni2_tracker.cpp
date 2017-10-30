@@ -31,21 +31,20 @@
  * Inspired by the openni_tracker by Tim Field and PrimeSense's NiTE 2.0 - Simple Skeleton Sample
  */
 
+#include <geometry_msgs/TransformStamped.h>
 #include <ros/ros.h>
 #include <ros/package.h>
-#include <tf/transform_broadcaster.h>
-#include <kdl/frames.hpp>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2/LinearMath/Quaternion.h>
 
-//#include <OpenNI.h>
-//#include <XnCodecIDs.h>
-//#include <XnCppWrapper.h>
 #include <NiTE.h>
+
+#include <map>
+#include <sstream>
 
 using std::string;
 
-//xn::Context        g_Context;
-//xn::DepthGenerator g_DepthGenerator;
-//xn::UserGenerator  g_UserGenerator;
+using namespace nite;
 
 #define MAX_USERS 10
 bool g_visibleUsers[MAX_USERS] = {false};
@@ -53,124 +52,6 @@ nite::SkeletonState g_skeletonStates[MAX_USERS] = {nite::SKELETON_NONE};
 
 #define USER_MESSAGE(msg) \
 	{printf("[%08llu] User #%d:\t%s\n",ts, user.getId(),msg);}
-
-//XnBool g_bNeedPose   = FALSE;
-//XnChar g_strPose[20] = "";
-//
-//void XN_CALLBACK_TYPE User_NewUser(xn::UserGenerator& generator, XnUserID nId, void* pCookie) {
-//	ROS_INFO("New User %d", nId);
-//
-//	if (g_bNeedPose)
-//		g_UserGenerator.GetPoseDetectionCap().StartPoseDetection(g_strPose, nId);
-//	else
-//		g_UserGenerator.GetSkeletonCap().RequestCalibration(nId, TRUE);
-//}
-//
-//void XN_CALLBACK_TYPE User_LostUser(xn::UserGenerator& generator, XnUserID nId, void* pCookie) {
-//	ROS_INFO("Lost user %d", nId);
-//}
-//
-//void XN_CALLBACK_TYPE UserCalibration_CalibrationStart(xn::SkeletonCapability& capability, XnUserID nId, void* pCookie) {
-//	ROS_INFO("Calibration started for user %d", nId);
-//}
-//
-//void XN_CALLBACK_TYPE UserCalibration_CalibrationEnd(xn::SkeletonCapability& capability, XnUserID nId, XnBool bSuccess, void* pCookie) {
-//	if (bSuccess) {
-//		ROS_INFO("Calibration complete, start tracking user %d", nId);
-//		g_UserGenerator.GetSkeletonCap().StartTracking(nId);
-//	}
-//	else {
-//		ROS_INFO("Calibration failed for user %d", nId);
-//		if (g_bNeedPose)
-//			g_UserGenerator.GetPoseDetectionCap().StartPoseDetection(g_strPose, nId);
-//		else
-//			g_UserGenerator.GetSkeletonCap().RequestCalibration(nId, TRUE);
-//	}
-//}
-//
-//void XN_CALLBACK_TYPE UserPose_PoseDetected(xn::PoseDetectionCapability& capability, XnChar const* strPose, XnUserID nId, void* pCookie) {
-//    ROS_INFO("Pose %s detected for user %d", strPose, nId);
-//    g_UserGenerator.GetPoseDetectionCap().StopPoseDetection(nId);
-//    g_UserGenerator.GetSkeletonCap().RequestCalibration(nId, TRUE);
-//}
-//
-//void publishTransform(XnUserID const& user, XnSkeletonJoint const& joint, string const& frame_id, string const& child_frame_id) {
-//    static tf::TransformBroadcaster br;
-//
-//    XnSkeletonJointPosition joint_position;
-//    g_UserGenerator.GetSkeletonCap().GetSkeletonJointPosition(user, joint, joint_position);
-//    double x = -joint_position.position.X / 1000.0;
-//    double y = joint_position.position.Y / 1000.0;
-//    double z = joint_position.position.Z / 1000.0;
-//
-//    XnSkeletonJointOrientation joint_orientation;
-//    g_UserGenerator.GetSkeletonCap().GetSkeletonJointOrientation(user, joint, joint_orientation);
-//
-//    XnFloat* m = joint_orientation.orientation.elements;
-//    KDL::Rotation rotation(m[0], m[1], m[2],
-//    					   m[3], m[4], m[5],
-//    					   m[6], m[7], m[8]);
-//    double qx, qy, qz, qw;
-//    rotation.GetQuaternion(qx, qy, qz, qw);
-//
-//    char child_frame_no[128];
-//    snprintf(child_frame_no, sizeof(child_frame_no), "%s_%d", child_frame_id.c_str(), user);
-//
-//    tf::Transform transform;
-//    transform.setOrigin(tf::Vector3(x, y, z));
-//    transform.setRotation(tf::Quaternion(qx, -qy, -qz, qw));
-//
-//    // #4994
-//    tf::Transform change_frame;
-//    change_frame.setOrigin(tf::Vector3(0, 0, 0));
-//    tf::Quaternion frame_rotation;
-//    frame_rotation.setEulerZYX(1.5708, 0, 1.5708);
-//    change_frame.setRotation(frame_rotation);
-//
-//    transform = change_frame * transform;
-//
-//    br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), frame_id, child_frame_no));
-//}
-//
-//void publishTransforms(const std::string& frame_id) {
-//    XnUserID users[15];
-//    XnUInt16 users_count = 15;
-//    g_UserGenerator.GetUsers(users, users_count);
-//
-//    for (int i = 0; i < users_count; ++i) {
-//        XnUserID user = users[i];
-//        if (!g_UserGenerator.GetSkeletonCap().IsTracking(user))
-//            continue;
-//
-//
-//        publishTransform(user, XN_SKEL_HEAD,           frame_id, "head");
-//        publishTransform(user, XN_SKEL_NECK,           frame_id, "neck");
-//        publishTransform(user, XN_SKEL_TORSO,          frame_id, "torso");
-//
-//        publishTransform(user, XN_SKEL_LEFT_SHOULDER,  frame_id, "left_shoulder");
-//        publishTransform(user, XN_SKEL_LEFT_ELBOW,     frame_id, "left_elbow");
-//        publishTransform(user, XN_SKEL_LEFT_HAND,      frame_id, "left_hand");
-//
-//        publishTransform(user, XN_SKEL_RIGHT_SHOULDER, frame_id, "right_shoulder");
-//        publishTransform(user, XN_SKEL_RIGHT_ELBOW,    frame_id, "right_elbow");
-//        publishTransform(user, XN_SKEL_RIGHT_HAND,     frame_id, "right_hand");
-//
-//        publishTransform(user, XN_SKEL_LEFT_HIP,       frame_id, "left_hip");
-//        publishTransform(user, XN_SKEL_LEFT_KNEE,      frame_id, "left_knee");
-//        publishTransform(user, XN_SKEL_LEFT_FOOT,      frame_id, "left_foot");
-//
-//        publishTransform(user, XN_SKEL_RIGHT_HIP,      frame_id, "right_hip");
-//        publishTransform(user, XN_SKEL_RIGHT_KNEE,     frame_id, "right_knee");
-//        publishTransform(user, XN_SKEL_RIGHT_FOOT,     frame_id, "right_foot");
-//    }
-//}
-//
-//#define CHECK_RC(nRetVal, what)										\
-//	if (nRetVal != XN_STATUS_OK)									\
-//	{																\
-//		ROS_ERROR("%s failed: %s", what, xnGetStatusString(nRetVal));\
-//		return nRetVal;												\
-//	}
 
 void updateUserState(const nite::UserData& user, unsigned long long ts)
 {
@@ -211,50 +92,18 @@ void updateUserState(const nite::UserData& user, unsigned long long ts)
 }
 
 int main(int argc, char **argv) {
-//    string configFilename = ros::package::getPath("openni_tracker") + "/openni_tracker.xml";
-//    XnStatus nRetVal = g_Context.InitFromXmlFile(configFilename.c_str());
-//    CHECK_RC(nRetVal, "InitFromXml");
-//
-//    nRetVal = g_Context.FindExistingNode(XN_NODE_TYPE_DEPTH, g_DepthGenerator);
-//    CHECK_RC(nRetVal, "Find depth generator");
-//
-//	nRetVal = g_Context.FindExistingNode(XN_NODE_TYPE_USER, g_UserGenerator);
-//	if (nRetVal != XN_STATUS_OK) {
-//		nRetVal = g_UserGenerator.Create(g_Context);
-//		CHECK_RC(nRetVal, "Find user generator");
-//	}
-//
-//	if (!g_UserGenerator.IsCapabilitySupported(XN_CAPABILITY_SKELETON)) {
-//		ROS_INFO("Supplied user generator doesn't support skeleton");
-//		return 1;
-//	}
-//
-//    XnCallbackHandle hUserCallbacks;
-//	g_UserGenerator.RegisterUserCallbacks(User_NewUser, User_LostUser, NULL, hUserCallbacks);
-//
-//	XnCallbackHandle hCalibrationCallbacks;
-//	g_UserGenerator.GetSkeletonCap().RegisterCalibrationCallbacks(UserCalibration_CalibrationStart, UserCalibration_CalibrationEnd, NULL, hCalibrationCallbacks);
-//
-//	if (g_UserGenerator.GetSkeletonCap().NeedPoseForCalibration()) {
-//		g_bNeedPose = TRUE;
-//		if (!g_UserGenerator.IsCapabilitySupported(XN_CAPABILITY_POSE_DETECTION)) {
-//			ROS_INFO("Pose required, but not supported");
-//			return 1;
-//		}
-//
-//		XnCallbackHandle hPoseCallbacks;
-//		g_UserGenerator.GetPoseDetectionCap().RegisterToPoseCallbacks(UserPose_PoseDetected, NULL, NULL, hPoseCallbacks);
-//
-//		g_UserGenerator.GetSkeletonCap().GetCalibrationPose(g_strPose);
-//	}
-//
-//	g_UserGenerator.GetSkeletonCap().SetSkeletonProfile(XN_SKEL_PROFILE_ALL);
-//
-//	nRetVal = g_Context.StartGeneratingAll();
-//	CHECK_RC(nRetVal, "StartGenerating");
+    const std::map<nite::JointType, std::string> joints = {
+        {JOINT_HEAD, "head"}, {JOINT_NECK, "neck"}, 
+        {JOINT_LEFT_HAND, "left_hand"}, {JOINT_LEFT_ELBOW, "left_elbow"}, {JOINT_LEFT_SHOULDER, "left_shoulder"},
+        {JOINT_RIGHT_HAND, "right_hand"}, {JOINT_RIGHT_ELBOW, "right_elbow"}, {JOINT_RIGHT_SHOULDER, "right_shoulder"},
+        {JOINT_RIGHT_FOOT, "right_foot"}, {JOINT_RIGHT_KNEE, "right_knee"}, {JOINT_RIGHT_HIP, "right_hip"},
+        {JOINT_LEFT_FOOT, "left_foot"}, {JOINT_LEFT_KNEE, "left_knee"}, {JOINT_LEFT_HIP, "left_hip"},
+        {JOINT_TORSO, "torso"},
+    };
 
     ros::init(argc, argv, "openni_tracker");
     ros::NodeHandle nh, nh_priv("~");
+    tf2_ros::TransformBroadcaster br;
 
     nite::UserTracker userTracker;
     nite::Status niteRc;
@@ -292,13 +141,43 @@ int main(int argc, char **argv) {
 				}
 				else if (user.getSkeleton().getState() == nite::SKELETON_TRACKED)
 				{
-					ROS_INFO_STREAM("Now tracking user " << user.getId());
-//					const nite::SkeletonJoint& head = user.getSkeleton().getJoint(nite::JOINT_HEAD);
-//					if (head.getPositionConfidence() > .5)
-//					printf("%d. (%5.2f, %5.2f, %5.2f)\n", user.getId(), head.getPosition().x, head.getPosition().y, head.getPosition().z);
+					ROS_INFO_THROTTLE(1, "Now tracking user %d", user.getId());
+                    const nite::Skeleton skeleton = user.getSkeleton();
+
+                    geometry_msgs::TransformStamped transform;
+                    transform.header.stamp = ros::Time::now();
+                    transform.header.frame_id = frame_id;
+
+                    for(const auto jointNamePair : joints) {
+                        const nite::SkeletonJoint& joint = skeleton.getJoint(jointNamePair.first);
+
+						nite::Point3f position = joint.getPosition();
+						nite::Quaternion orientation = joint.getOrientation();
+
+						// If the orientation isn't a unit quaternion, replace it with the identy quaternion
+                        // (Should only occur for hands and feet)
+						if(orientation.x*orientation.x + 
+						   orientation.y*orientation.y +
+						   orientation.z*orientation.z < 0.001) orientation = nite::Quaternion(1,0,0,0);
+
+						std::stringstream frame;
+						frame << jointNamePair.second << "_" << user.getId();
+
+						// Fill out the message
+                        transform.child_frame_id = frame.str();
+                        transform.transform.translation.x = position.x / 1000.0;
+                        transform.transform.translation.y = position.y / 1000.0;
+                        transform.transform.translation.z = position.z / 1000.0;
+
+						transform.transform.rotation.x = orientation.x;
+						transform.transform.rotation.y = orientation.y;
+						transform.transform.rotation.z = orientation.z;
+						transform.transform.rotation.w = orientation.w;
+
+                        br.sendTransform(transform);
+                    }
 				}
 			}
-//			publishTransforms(frame_id);
 		}
 		else
 		{
@@ -309,3 +188,4 @@ int main(int argc, char **argv) {
 	}
 	return 0;
 }
+
